@@ -2,25 +2,30 @@ package dsa;
 
 import java.util.*;
 
-class ArrayDeque {
-    private int array[];
+class ArrayDeque<T> {
+    private T array[];
     private int capacity;
     private int size;
-    private int left, right;
+    private int front, back;
     
+    public ArrayDeque(){
+        this(8);
+    }   
+
+    @SuppressWarnings("unchecked")
     public ArrayDeque(int capacity){
         this.capacity = capacity;
-        this.array = new int[capacity];
+        this.array = (T[]) new Object[capacity];
         boolean isEvenCapacity = capacity % 2 == 0;
         int mid = capacity / 2;
-        this.left = isEvenCapacity ? mid - 1 : mid;
-        this.right = mid;
+        this.front = isEvenCapacity ? mid - 1 : mid;
+        this.back = mid;
         this.size = 0;
     }
     
-    public boolean insertFront(int val){
-        if(this.left >= 0){
-            this.array[this.left--] = val;
+    public boolean insertFront(T val){
+        if(this.front >= 0){
+            this.array[this.front--] = val;
         }else {
             resize();
             this.insertFront(val);
@@ -29,9 +34,9 @@ class ArrayDeque {
         return true;
     }
 
-    public boolean insertBack(int val){
-        if(this.right < this.capacity){
-            this.array[this.right++] = val;
+    public boolean insertBack(T val){
+        if(this.back < this.capacity){
+            this.array[this.back++] = val;
         }else {
             resize();
             this.insertBack(val);
@@ -40,40 +45,41 @@ class ArrayDeque {
         return true;
     }
 
-    public int removeFront(){
-        this.left++;
-        int val = this.array[this.left];
-        this.array[this.left] = 0;
+    public T removeFront(){
+        this.front++;
+        T val = this.array[this.front];
+        this.array[this.front] = null;
         this.size--;
         return val;
     }
     
-    public int removeBack(){
-        this.right--;
-        int val = this.array[this.right];
-        this.array[this.right] = 0;
+    public T removeBack(){
+        this.back--;
+        T val = this.array[this.back];
+        this.array[this.back] = null;
         this.size--;
         return val;
     }
     
-    public int get(int index){
+    public T get(int index){
         if(this.size == 0)
-            return -1;
-        return this.array[this.left + index + 1];
+            return null;
+        return this.array[this.front + index + 1];
     }
     
+    @SuppressWarnings("unchecked")
     private void resize(){
-        int arrayCopy[] = this.array.clone();
+        T arrayCopy[] = this.array.clone();
         this.capacity *= 2;
-        this.array = new int[this.capacity];
+        this.array = (T[]) new Object[this.capacity];
         int startPrev = 0;
         int endPrev = this.size - 1;
         int midCurr = this.capacity / 2;
         boolean isEvenSize = this.capacity % 2 == 0;
         int startCurr = midCurr - this.size / 2;
         int endCurr = isEvenSize ? midCurr + (this.size / 2) - 1 : midCurr + this.size / 2;
-        this.left = startCurr - 1;
-        this.right = endCurr + 1;
+        this.front = startCurr - 1;
+        this.back = endCurr + 1;
         
         while(startPrev <= endPrev){
             this.array[startCurr++] = arrayCopy[startPrev++];
@@ -89,7 +95,7 @@ class ArrayDeque {
     }
     
     public static void main(String[] args) {
-        ArrayDeque sol = new ArrayDeque(8);
+        ArrayDeque<Integer> sol = new ArrayDeque<>(8);
         sol.insertFront(1);
         sol.insertBack(2);
         sol.insertFront(3);

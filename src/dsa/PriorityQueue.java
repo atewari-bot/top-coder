@@ -70,7 +70,7 @@ public class PriorityQueue<T> {
         if(isEmpty()){
             return null;
         }
-
+        
         return (T) this.heap[0];
     }
 

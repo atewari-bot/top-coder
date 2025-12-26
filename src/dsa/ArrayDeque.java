@@ -16,9 +16,8 @@ class ArrayDeque<T> {
     public ArrayDeque(int capacity){
         this.capacity = capacity;
         this.array = (T[]) new Object[capacity];
-        boolean isEvenCapacity = capacity % 2 == 0;
         int mid = capacity / 2;
-        this.front = isEvenCapacity ? mid - 1 : mid;
+        this.front = mid - 1;
         this.back = mid;
         this.size = 0;
     }
@@ -75,9 +74,8 @@ class ArrayDeque<T> {
         int startPrev = 0;
         int endPrev = this.size - 1;
         int midCurr = this.capacity / 2;
-        boolean isEvenSize = this.capacity % 2 == 0;
         int startCurr = midCurr - this.size / 2;
-        int endCurr = isEvenSize ? midCurr + (this.size / 2) - 1 : midCurr + this.size / 2;
+        int endCurr = midCurr + (this.size / 2) - 1;
         this.front = startCurr - 1;
         this.back = endCurr + 1;
         

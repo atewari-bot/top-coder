@@ -8,7 +8,7 @@ public class TaskManagementSystem {
     private final Map<String, Task> tasks;
     private final Map<String, User> users;
     private final Comparator<Task> taskComparator;
-    private final Map<String, TaskAssignmentRecord> assignmentHistory;
+    private final Map<String, List<TaskAssignmentRecord>> assignmentHistory;
     private final PriorityQueue<ScheduledDeletion> deletionQueue;
     private static final int MAX_TIMESTAMP = 1000000000;
     private int currentTimestamp;
@@ -82,14 +82,22 @@ public class TaskManagementSystem {
         return new ArrayList<>(this.tasks.values());
     }
 
-    public Task updateTask(String taskId, String title, String description){
+    public List<Task> getTaskSorted(){
+        return new ArrayList<>(this.tasks.values().stream().sorted(this.taskComparator).collect(Collectors.toList()));
+    }
+
+    public Task updateTask(String taskId, String title, String description, Integer priority){
         Task task = this.tasks.get(taskId);
         if(task == null){
             throw new IllegalArgumentException("Task does not exist");
         }
 
-        task.setTitle(title);
-        task.setDescription(description);
+        if(task != null)
+            task.setTitle(title);
+        if(description != null)
+            task.setDescription(description);
+        if(priority != null)
+            task.setPriority(priority);
         this.tasks.put(taskId, task);
 
         return task;
@@ -101,8 +109,9 @@ public class TaskManagementSystem {
             User user = this.users.get(task.getAssignedUserId());
             if(user != null){
                 user.decrementTaskCount();
-                assignmentHistory.put(task.getAssignedUserId(), 
-                    new TaskAssignmentRecord(task.getAssignedUserId(), taskId, getCurrentTimestamp(), false));
+                TaskAssignmentRecord record = new TaskAssignmentRecord(task.getAssignedUserId(), taskId, getCurrentTimestamp(), false);
+                assignmentHistory.putIfAbsent(task.getAssignedUserId(), new ArrayList<>());
+                assignmentHistory.get(task.getAssignedUserId()).add(record);
             }
         }
         return task != null;
@@ -171,15 +180,38 @@ public class TaskManagementSystem {
             User prevUser = this.users.get(task.getAssignedUserId());
             if(prevUser != null){
                 prevUser.decrementTaskCount();
-                assignmentHistory.put(prevUser.getUserId(), new TaskAssignmentRecord(prevUser.getUserId(), taskId, getCurrentTimestamp(), false));
+                TaskAssignmentRecord prevUserRecord = new TaskAssignmentRecord(prevUser.getUserId(), taskId, getCurrentTimestamp(), false);
+                assignmentHistory.putIfAbsent(prevUser.getUserId(), new ArrayList<>());
+                assignmentHistory.get(prevUser.getUserId()).add(prevUserRecord);
             }
         }
 
         task.setAssignedUserId(userId);
         user.incrementTaskCount();
-        assignmentHistory.put(userId, new TaskAssignmentRecord(userId, taskId, getCurrentTimestamp(), true));
+        TaskAssignmentRecord newUserRecord = new TaskAssignmentRecord(userId, taskId, getCurrentTimestamp(), true);
+        assignmentHistory.putIfAbsent(userId, new ArrayList<>());
+        assignmentHistory.get(userId).add(newUserRecord);
     }
 
+    public int getTasksAssignmentCountByUser(String userId){
+        return assignmentHistory.getOrDefault(userId, new ArrayList<>()).size();
+    }
+
+    public int getTasksAssignmentCountAtTimeByUser(String userId, int queryTime){
+        List<TaskAssignmentRecord> records = assignmentHistory.getOrDefault(userId, new ArrayList<>());
+        int count = records.stream().filter(t -> t.isAssgined() && t.getTimestamp() <= queryTime).collect(Collectors.toList()).size();
+        return count;
+    }
+
+    public Map<String, Integer> getTasksAssignmentCountAtTimeForAllUsers(int queryTime){
+        Map<String, Integer> usersTaskCount = new HashMap<>();
+        for(String userId : assignmentHistory.keySet()){
+            List<TaskAssignmentRecord> records = assignmentHistory.getOrDefault(userId, new ArrayList<>());
+            usersTaskCount.put(userId, records.size());
+        }
+        
+        return usersTaskCount;
+    }
     // ******* Schedule Deletion *************
     public void scheduleTaskDeletion(String taskId, int deletionTime){
         Task task = this.tasks.get(taskId);
@@ -251,6 +283,58 @@ public class TaskManagementSystem {
         System.out.println("Alice's tasks: " + tms.getUser("U1").getTaskCount());
         System.out.println("Bob's tasks: " + tms.getUser("U2").getTaskCount());
 
+        // 6. Historical queries
+        System.out.println("\n6. Historical task assignment queries:");
+        System.out.println("Alice's tasks at time " + time1 + ": " + 
+            tms.getTasksAssignmentCountAtTimeByUser("U1", time1));
+        System.out.println("Alice's tasks at time " + time2 + ": " + 
+            tms.getTasksAssignmentCountAtTimeByUser("U1", time2));
+        System.out.println("Alice's tasks at time " + time3 + ": " + 
+            tms.getTasksAssignmentCountAtTimeByUser("U1", time3));
+        System.out.println("Bob's tasks at time " + time3 + ": " + 
+            tms.getTasksAssignmentCountAtTimeByUser("U2", time3));
+                System.out.println("\nAll user counts at time " + time3 + ":");
+        tms.getTasksAssignmentCountAtTimeForAllUsers(time3).forEach((user, count) ->
+            System.out.println("  " + user + ": " + count + " tasks"));
+        
+
+        // 7. Update task
+        System.out.println("\n7. Updating task using updateTask()...");
+        tms.updateTask("T1", "Fix critical login bug", null, 15);
+        System.out.println(tms.getTask("T1"));
+        
+        // 7b. Update task priority using setTaskPriority()
+        System.out.println("\n7b. Updating task priority using setTaskPriority()...");
+        tms.advanceTime(180);
+        boolean updated = tms.setTaskPriority(tms.getCurrentTimestamp(), "T2", 12);
+        System.out.println("Task T2 priority update successful: " + updated);
+        System.out.println(tms.getTask("T2"));
+        
+        // 8. Scheduled deletion
+        System.out.println("\n8. Scheduling task deletion...");
+        int deletionTime = tms.getCurrentTimestamp() + 50; // Schedule 50 time units ahead
+        tms.scheduleTaskDeletion("T4", deletionTime);
+        System.out.println("Task T4 scheduled for deletion at time: " + deletionTime);
+        System.out.println("Task T4 exists before deletion: " + (tms.getTask("T4") != null));
+        
+        // Advance time past deletion point
+        tms.advanceTime(deletionTime + 1);
+        System.out.println("Advanced to time: " + tms.getCurrentTimestamp());
+        System.out.println("Task T4 exists after deletion: " + (tms.getTask("T4") != null));
+        
+        // 9. Display final sorted tasks
+        System.out.println("\n9. Final sorted tasks:");
+        tms.getTaskSorted().forEach(System.out::println);
+        
+        // 10. Query at different historical timestamps
+        System.out.println("\n10. Historical query at time 140 (before assignments):");
+        System.out.println("Alice's tasks: " + tms.getTasksAssignmentCountAtTimeByUser("U1", 140));
+        System.out.println("Bob's tasks: " + tms.getTasksAssignmentCountAtTimeByUser("U2", 140));
+        
+        // 11. Get tasks before a given timestamp
+        System.out.println("\n11. Tasks created before timestamp 125 (ordered by priority):");
+        tms.getTasksBeforeTimestamp(125).forEach(System.out::println);
+
         // 5. Try to exceed quota
         System.out.println("\n5. Testing quota enforcement...");
         try {
@@ -258,6 +342,5 @@ public class TaskManagementSystem {
         } catch (IllegalStateException e) {
             System.out.println("Expected error: " + e.getMessage());
         }
-        
     }
 }

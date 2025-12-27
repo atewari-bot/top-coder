@@ -26,7 +26,7 @@ public class InMemoryDatabase {
 
     public void set(String key, Object value){
         if(inTransaction()){
-            recordChange(key);
+            recordTxnChange(key);
             System.out.println(String.format("Set %s = %s in transaction", key, value));
         }
 
@@ -37,7 +37,7 @@ public class InMemoryDatabase {
     public void unset(String key){
         if(store.containsKey(key)){
             if(inTransaction()){
-                recordChange(key);
+                recordTxnChange(key);
                 System.out.println(String.format("Unset %s in transaction", key));
             }
 
@@ -91,7 +91,7 @@ public class InMemoryDatabase {
         return !transactionStack.isEmpty();
     }
 
-    private void recordChange(String key){
+    private void recordTxnChange(String key){
         Map<String, Object> currentTxn = transactionStack.peek();
 
         if(!currentTxn.containsKey(key)){
@@ -108,10 +108,8 @@ public class InMemoryDatabase {
         InMemoryDatabase db = new InMemoryDatabase();
         db.set("x", 10);
         System.out.println("After set('x', 10): get('x') = " + db.get("x"));
-        
         db.set("x", 20);
         System.out.println("After set('x', 20): get('x') = " + db.get("x"));
-        
         db.unset("x");
         try {
             db.get("x");
@@ -123,11 +121,9 @@ public class InMemoryDatabase {
         db = new InMemoryDatabase();
         db.set("x", 10);
         System.out.println("Initial: get('x') = " + db.get("x"));
-        
         db.begin();
         db.set("x", 20);
         System.out.println("During transaction: get('x') = " + db.get("x"));
-        
         db.abort();
         System.out.println("After abort: get('x') = " + db.get("x"));
         
@@ -135,11 +131,9 @@ public class InMemoryDatabase {
         db = new InMemoryDatabase();
         db.set("y", 100);
         System.out.println("Initial: get('y') = " + db.get("y"));
-        
         db.begin();
         db.set("y", 200);
         System.out.println("During transaction: get('y') = " + db.get("y"));
-        
         db.commit();
         System.out.println("After commit: get('y') = " + db.get("y"));
         
@@ -147,28 +141,15 @@ public class InMemoryDatabase {
         db = new InMemoryDatabase();
         db.set("z", 1);
         System.out.println("Initial: get('z') = " + db.get("z"));
-        
         db.begin();
         db.set("z", 2);
         System.out.println("Outer transaction: get('z') = " + db.get("z"));
-        
         db.begin();
         db.set("z", 3);
         System.out.println("Inner transaction: get('z') = " + db.get("z"));
-        
         db.commit();  // Commit inner
         System.out.println("After inner commit: get('z') = " + db.get("z"));
-        
         db.abort();  // Abort outer
         System.out.println("After outer abort: get('z') = " + db.get("z"));
-        
-        System.out.println("\n=== Problem Example ===");
-        db = new InMemoryDatabase();
-        db.set("x", 10);
-        db.begin();
-        db.set("x", 20);
-        System.out.println("During transaction: get('x') = " + db.get("x") + " (should be 20)");
-        db.abort();
-        System.out.println("After abort: get('x') = " + db.get("x") + " (should be 10)");
     }
 }

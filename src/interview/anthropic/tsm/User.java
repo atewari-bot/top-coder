@@ -1,4 +1,4 @@
-package interview.anthropic;
+package interview.anthropic.tsm;
 
 public class User {
     private final String userId;
